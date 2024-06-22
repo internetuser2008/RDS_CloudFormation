@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: 'CloudFormation Template to create RDS Postgres password rotation single user'
-# Requirment: 1. Prior ECI_PG.yml stack to be deployed  
+# Requirment: 1. Prior PG.yml stack to be deployed  
 
 Metadata:
   'AWS::CloudFormation::Interface':
@@ -19,12 +19,12 @@ Parameters:
   rMyRDSSecret:
     Description: 'Secrets name'
     Type: String
-    Default: ViasatDBATest
+    Default: DBATest
 
   rMasterDb:
     Description: 'DB identifier'
     Type: String
-    Default: viasatdbatest
+    Default: bimaldbatest
 
   pgVpcId:
     Description: VPC ID
@@ -34,12 +34,12 @@ Parameters:
   pgDatabaseSubnetGroupName:
     Description: Subnets id's 
     Type: List<AWS::EC2::Subnet::Id>
-    Default: subnet-0884acc855d1d7d96,subnet-0be982c9606952c74,subnet-057c5f6610fd6c873,subnet-0c9841c928fba8e1e,subnet-04b9e59fb90c35588,subnet-058aeba38b7b46b4e  
+    Default: subnet-0884acc855d1d2d96,subnet-0be982c9406952c74,subnet-057c5f6110fd6c873,subnet-0c9841c128fba8e1e,subnet-04b9e59fb20c35588,subnet-058aeca38b7b46b4e  
 
   pPGSecurityGroup:
     Description: Security Group
     Type: List<AWS::EC2::SecurityGroup::Id>
-    Default: sg-04b4c4fd8688ea18e
+    Default: sg-04b4c4fd8388ea18e
     
 Resources:
 
