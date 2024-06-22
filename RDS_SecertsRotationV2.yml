@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'CloudFormation Template to create RDS Postgres password rotation single user'
+# Requirment: 1. Prior ECI_PG.yml stack to be deployed  
+
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+    - Label:
+        default: ''
+      Parameters:
+      - rMyRDSSecret
+      - rMasterDb
+      - pgVpcId
+      - pPGSecurityGroup
+      - pgDatabaseSubnetGroupName
+  
+Parameters:
+  rMyRDSSecret:
+    Description: 'Secrets name'
+    Type: String
+    Default: ViasatDBATest
+
+  rMasterDb:
+    Description: 'DB identifier'
+    Type: String
+    Default: viasatdbatest
+
+  pgVpcId:
+    Description: VPC ID
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-0956b2ae7520a831b    
+    
+  pgDatabaseSubnetGroupName:
+    Description: Subnets id's 
+    Type: List<AWS::EC2::Subnet::Id>
+    Default: subnet-0884acc855d1d7d96,subnet-0be982c9606952c74,subnet-057c5f6610fd6c873,subnet-0c9841c928fba8e1e,subnet-04b9e59fb90c35588,subnet-058aeba38b7b46b4e  
+
+  pPGSecurityGroup:
+    Description: Security Group
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Default: sg-04b4c4fd8688ea18e
+    
+Resources:
+
+  SecretClusterAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId: !Ref rMyRDSSecret
+      TargetId: !Ref rMasterDb
+      TargetType: AWS::RDS::DBInstance
+
+  SecretResourcePolicy:
+    Type: AWS::SecretsManager::ResourcePolicy
+    Properties:
+      SecretId: !Ref rMyRDSSecret
+      #Deny the DeleteSecerete action to all principals within the current account
+      ResourcePolicy:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Deny"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "secretsmanager:DeleteSecret"
+            Resource: "*"
+  
+  SecretRotationSchedule:
+    Type: AWS::SecretsManager::RotationSchedule
+    DependsOn: SecretClusterAttachment
+    Properties:
+      SecretId: !Ref rMyRDSSecret
+      RotationLambdaARN: !GetAtt MyRotationServerlessApplication.Outputs.RotationLambdaARN
+      RotationRules:
+        AutomaticallyAfterDays: 90
+        
+  #Serverless Application resource For details https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets.html
+  MyRotationServerlessApplication:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:297356227824:applications/SecretsManagerRDSPostgreSQLRotationSingleUser
+        SemanticVersion: 1.1.8
+      Parameters:
+        endpoint: !Sub 'https://secretsmanager.${AWS::Region}.${AWS::URLSuffix}'
+        functionName: !Sub '${AWS::StackName}-SecretRotationLambdApp'
+                      #Convert Subnet & SeucrityGroup to String from list
+        vpcSubnetIds: !Join [",", [!Select [0, !Ref pgDatabaseSubnetGroupName], !Select [1, !Ref pgDatabaseSubnetGroupName]]]
+        vpcSecurityGroupIds: 
+            Fn::Join:
+            - ","
+            - Ref: pPGSecurityGroup
+ 
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt MyRotationServerlessApplication.Outputs.RotationLambdaARN
+      Action: 'lambda:InvokeFunction'
+      Principal: secretsmanager.amazonaws.com 
